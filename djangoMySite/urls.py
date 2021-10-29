@@ -15,7 +15,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-
+from MySitepolls import views
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path(r'send/sms', views.send_sms),
 ]
