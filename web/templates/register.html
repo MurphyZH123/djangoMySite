@@ -58,15 +58,38 @@
     <script>
         $(function () {
             bindClickBtnSms();
+            bindClickSubmit();
         });
-        /* 测试 */
+        /* 点击提交注册 */
+        function bindClickSubmit() {
+            $('#btnSubmit').click(function () {
+                $('.error-msg').empty();
+                // 收集表单中的数据（找到每一个字段）$('#regForm').serialize()
+                // 数据ajax发送到后台
+                $.ajax({
+                    url: "{% url 'register' %}",
+                    type: "POST",
+                    data: $('#regForm').serialize(), // 所有字段数据 + csrf token
+                    dataType: "JSON",
+                    success: function (res) {
+                        if(res.status){
+                            location.href = res.data;
+                        }else{
+                            $.each(res.error, function (key, value) {
+                                $("#id_" + key).next().text(value[0]);
+                            })
+                        }
+                    }
+                })
+            })
+        }
+        /* 点击发送短信 */
         function bindClickBtnSms() {
             $('#btnSms').click(function () {
                 $('.error-msg').empty(); //将所有的错误信息置空
                 // 获取用户输入的手机号
                 // 找到输入框的ID，根据ID获取值，如何找到手机号的那个ID？
                 var mobilePhone = $('#id_mobile_phone').val();
-
                 // 发送ajax请求，把手机号发送过去
                 $.ajax({
                     url: "{% url 'send_sms' %}", // 等价于 /send/sms/
@@ -78,8 +101,6 @@
                         if (res.status) {
                             sendSmsRemind();
                         } else {
-                            // 错误信息
-                            // console.log(res); // {status:False, error:{ mobile_phone: ["错误信息"，],code: ["错误信息"，] }  }
                             $.each(res.error, function (key, value) {
                                 $("#id_" + key).next().text(value[0]);
                             })
@@ -89,7 +110,7 @@
 
             })
         }
-        /*倒计时*/
+        /*发送短信倒计时*/
         function sendSmsRemind(){
             var $smsBtn = $('#btnSms');
             $smsBtn.prop('disabled',true); //禁用

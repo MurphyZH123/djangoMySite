@@ -11,6 +11,14 @@ def register(request):
     if request.method == 'GET':
         form = RegisterModelForm()
         return render(request, 'register.html', {'form': form})
+    form = RegisterModelForm(data=request.POST)
+    if form.is_valid():
+        # 验证通过，写入数据库（密码要是密文）
+        # instance = form.save，在数据库中新增一条数据，并将新增的这条数据赋值给instance
+        # 用户表中新建一条数据（注册）
+        form.save()
+        return JsonResponse({'status': True, 'data': '/login/'})
+    return JsonResponse({'status': False, 'error': form.errors})
 
 
 def send_sms(request):
@@ -21,6 +29,6 @@ def send_sms(request):
         # 发短信
         # 写redis
         return JsonResponse({'status':True})
-    return JsonResponse({'status':False,'error':form.errors})
+    return JsonResponse({'status':False,'error': form.errors})
 
 

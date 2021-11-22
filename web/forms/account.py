@@ -1,36 +1,104 @@
-from django.shortcuts import render
 import random
 from django import forms
-from web import models
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from django.conf import settings
-from utils.tencent.sms import send_sms_single
+
 from django_redis import get_redis_connection
 
+from web import models
+from web.forms.bootstrap import BootStrapForm
+from utils.tencent.sms import send_sms_single
+from utils import encrypt
 
-class RegisterModelForm(forms.ModelForm):
-    mobile_phone = forms.CharField(label='手机号', validators=[RegexValidator(r'^(1[3|4|5|6|7|8|9])\d{9}$', '手机号格式错误'), ])   # 将model中的mobile_phone进行重写,validators接受两个参数，一个是正则校验，一个是报错信息
-    password = forms.CharField(label='密码',
-                               widget=forms.PasswordInput(attrs={'class':'form-control','placeholder':'请确认你的密码'}))
-    confirm_password = forms.CharField(label='重复密码',
-                                       widget=forms.PasswordInput(attrs={'class':'form-control','placeholder':'请再次确认你的密码'}))   # 新增form字段，数据库没有
-    code = forms.CharField(label='验证码',
-                           required=True, min_length=4, max_length=4,
-                           widget=forms.TextInput(attrs={'class':'form-control','placeholder':'请输入你的验证码'}))
+
+class RegisterModelForm(BootStrapForm, forms.ModelForm):
+    password = forms.CharField(
+        label='密码',
+        min_length=8,
+        max_length=64,
+        error_messages={
+            'min_length': "密码长度不能小于8个字符",
+            'max_length': "密码长度不能大于64个字符"
+        },
+        widget=forms.PasswordInput()
+    )
+
+    confirm_password = forms.CharField(
+        label='重复密码',
+        min_length=8,
+        max_length=64,
+        error_messages={
+            'min_length': "重复密码长度不能小于8个字符",
+            'max_length': "重复密码长度不能大于64个字符"
+        },
+        widget=forms.PasswordInput())
+
+    mobile_phone = forms.CharField(label='手机号', validators=[RegexValidator(r'^(1[3|4|5|6|7|8|9])\d{9}$', '手机号格式错误'), ])
+
+    code = forms.CharField(
+        label='验证码',
+        widget=forms.TextInput())
 
     class Meta:
         model = models.UserInfo
-        # fields = '__all__'  # 默认获取model中的字段顺序
         fields = ['username', 'email', 'password', 'confirm_password', 'mobile_phone', 'code']
 
-# 重写__init__方法，添加统一的样式
-    def __init__(self,*args,**kwargs):
-        super().__init__()
-        for name,field in self.fields.items():
-            # name=字段名称 field=后面的规则
-            field.widget.attrs['class'] = 'form-control'
-            field.widget.attrs['placeholder'] = '请输入%s' % (field.label,)
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        exists = models.UserInfo.objects.filter(username=username).exists()
+        if exists:
+            raise ValidationError('用户名已存在')
+            # self.add_error('username','用户名已存在')
+        return username
+
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        exists = models.UserInfo.objects.filter(email=email).exists()
+        if exists:
+            raise ValidationError('邮箱已存在')
+        return email
+
+    def clean_password(self):
+        pwd = self.cleaned_data['password']
+        # 加密 & 返回
+        return encrypt.md5(pwd)
+
+    def clean_confirm_password(self):
+        pwd = self.cleaned_data.get('password')
+        confirm_pwd = encrypt.md5(self.cleaned_data['confirm_password'])
+        if pwd != confirm_pwd:
+            raise ValidationError('两次密码不一致')
+
+        return confirm_pwd
+
+    def clean_mobile_phone(self):
+        mobile_phone = self.cleaned_data['mobile_phone']
+        exists = models.UserInfo.objects.filter(mobile_phone=mobile_phone).exists()
+        if exists:
+            raise ValidationError('手机号已注册')
+        return mobile_phone
+
+    def clean_code(self):
+        code = self.cleaned_data['code']
+
+        # mobile_phone = self.cleaned_data['mobile_phone']
+
+        mobile_phone = self.cleaned_data.get('mobile_phone')
+        if not mobile_phone:
+            return code
+
+        conn = get_redis_connection()
+        redis_code = conn.get(mobile_phone)
+        if not redis_code:
+            raise ValidationError('验证码失效或未发送，请重新发送')
+
+        redis_str_code = redis_code.decode('utf-8')
+
+        if code.strip() != redis_str_code:
+            raise ValidationError('验证码错误，请重新输入')
+
+        return code
 
 
 class SendSmsForm(forms.Form):
