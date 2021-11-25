@@ -4,7 +4,7 @@
 from web import models
 from django.shortcuts import render,HttpResponse
 from django.http import JsonResponse
-from web.forms.account import RegisterModelForm,SendSmsForm,LoginSMSForm
+from web.forms.account import RegisterModelForm,SendSmsForm,LoginSMSForm,LoginForm
 
 
 def register(request):
@@ -45,5 +45,23 @@ def login_sms(request):
         user_object = models.UserInfo.objects.filter(mobile_phone=mobile_phone).first()
         request.session['user_id'] = user_object.id
         request.session['user_name'] = user_object.user_name
-        return JsonResponse({'status': True, 'data': '/index/'})
+        return JsonResponse({'status': True, 'data': '/login/'})
     return JsonResponse({'status': False, 'error': form.errors})
+
+
+def login(request):
+    """ 用户名和密码登录 """
+    form = LoginForm()
+    return render(request, 'login.html', {'form': form})
+
+
+def image_code(request):
+    """生成图片验证码"""
+    from io import BytesIO
+    from utils.image_code import check_code
+    image_object, code = check_code()
+    request.session['image_code'] = code  # 添加code
+    request.session.set_expiry(60)   # 主动修改session的过期时间
+    stream = BytesIO()
+    image_object.save(stream,'png')
+    return HttpResponse(stream.getvalue())
