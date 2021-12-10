@@ -31,7 +31,7 @@
                                 <span class="error-msg">{{ field.errors.0 }}</span>
                             </div>
                             <div class="col-xs-5">
-                                <img src="{% url 'image_code' %}">
+                                <img src="{% url 'image_code' %}" id="imageCode" title="点击更换图片">
                             </div>
                         </div>
                     </div>
@@ -43,7 +43,11 @@
                     </div>
                 {% endif %}
             {% endfor %}
-
+            <div>
+                <div style="float: right;">
+                    <a href="{% url 'login_sms' %}">短信验证码登录?</a>
+                </div>
+            </div>
             <div class="row">
                 <div class="col-xs-3">
                     <input  type="submit" class="btn btn-primary" value="登  录"/>
@@ -51,4 +55,15 @@
             </div>
         </form>
     </div>
+{% endblock %}
+
+{% block js %}
+    <script>
+        $(function(){
+            $('#imageCode').click(function(){
+                var oldScr = $(this).attr('src');
+                $(this).attr('src',oldScr+"?");
+            })
+        })
+    </script>
 {% endblock %}

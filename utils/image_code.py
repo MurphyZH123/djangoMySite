@@ -59,24 +59,4 @@ def check_code(width=120, height=30, char_length=5, font_file='kumo.ttf', font_s
 
 
 if __name__ == '__main__':
-    # 1. 直接打开
-    # img,code = check_code()
-    # img.show()
-
-    # 2. 写入文件
-    # img,code = check_code()
-    # with open('code.png','wb') as f:
-    #     img.save(f,format='png')
-
-    # 3. 写入内存(Python3)
-    # from io import BytesIO
-    # stream = BytesIO()
-    # img.save(stream, 'png')
-    # stream.getvalue()
-
-    # 4. 写入内存（Python2）
-    # import StringIO
-    # stream = StringIO.StringIO()
-    # img.save(stream, 'png')
-    # stream.getvalue()
-    pass
+    image_object, code = check_code()

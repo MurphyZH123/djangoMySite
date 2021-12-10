@@ -2,8 +2,11 @@
 用户账户相关功能：注册、短信、登录、注销
 """
 from web import models
-from django.shortcuts import render,HttpResponse
+from io import BytesIO
+from django.shortcuts import render,HttpResponse,redirect
 from django.http import JsonResponse
+from django.db.models import Q
+from utils.image_code import check_code
 from web.forms.account import RegisterModelForm,SendSmsForm,LoginSMSForm,LoginForm
 
 
@@ -44,24 +47,51 @@ def login_sms(request):
         # 将用户名写入到session中
         user_object = models.UserInfo.objects.filter(mobile_phone=mobile_phone).first()
         request.session['user_id'] = user_object.id
-        request.session['user_name'] = user_object.user_name
+        request.session.set_expiry(60 * 60 * 24 * 14)
         return JsonResponse({'status': True, 'data': '/login/'})
     return JsonResponse({'status': False, 'error': form.errors})
 
 
 def login(request):
     """ 用户名和密码登录 """
-    form = LoginForm()
+    if request.method == 'GET':
+        form = LoginForm(request)
+        return render(request, 'login.html', {'form': form})
+    form = LoginForm(request, data=request.POST)
+    if form.is_valid():
+        username = form.cleaned_data['username']
+        password = form.cleaned_data['password']
+
+        # user_object = models.UserInfo.objects.filter(username=username, password=password).first()
+        #  (手机=username and pwd=pwd) or (邮箱=username and pwd=pwd)
+
+        user_object = models.UserInfo.objects.filter(Q(email=username) | Q(mobile_phone=username)).filter(
+            password=password).first()
+        if user_object:
+            # 登录成功为止1
+            request.session['user_id'] = user_object.id
+            request.session.set_expiry(60 * 60 * 24 * 14)
+
+            return redirect('index')
+
+        form.add_error('username', '用户名或密码错误')
+
     return render(request, 'login.html', {'form': form})
 
 
 def image_code(request):
-    """生成图片验证码"""
-    from io import BytesIO
-    from utils.image_code import check_code
+    """ 生成图片验证码 """
+
     image_object, code = check_code()
-    request.session['image_code'] = code  # 添加code
-    request.session.set_expiry(60)   # 主动修改session的过期时间
+
+    request.session['image_code'] = code
+    request.session.set_expiry(60)  # 主动修改session的过期时间为60s
+
     stream = BytesIO()
-    image_object.save(stream,'png')
+    image_object.save(stream, 'png')
     return HttpResponse(stream.getvalue())
+
+
+def logout(request):
+    request.session.flush()
+    return redirect('index')
